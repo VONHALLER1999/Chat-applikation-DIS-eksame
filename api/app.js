@@ -316,7 +316,7 @@ app.post("/api/logout", async (req, res) => {
 });
 app.post("/api/clearchat", async (req, res) => {
   try {
-    if(req.body.admin == true){
+    if(req.body.admin == 'true'){
         db.serialize(() => {
           db.all("DELETE FROM Messages", (err, result) => {
             console.log(result);
@@ -324,8 +324,10 @@ app.post("/api/clearchat", async (req, res) => {
         });
     } else {
       console.log('bad request:', req.body.admin )
+      res.send()
     }
   } catch (err) {
     console.log(err);
+    res.send();
   }
 });
