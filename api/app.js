@@ -135,48 +135,59 @@ app.use(express.static(path.join(__dirname, "/public")));
 io.on("connection", (socket) => {
   //server recieves the new message from the client
   socket.on("new message", (data) => {
-    console.log("server recevied a new message: ", data);
-    let sql = "SELECT * FROM Users WHERE Username = '" + socket.handshake.session.username+"'"
+    let sql =
+      "SELECT * FROM Users WHERE Username = '" +
+      socket.handshake.session.username +
+      "'";
     db.get(sql, (err, result) => {
       if (err) {
-        console.log("error from the first query: ",err);
         return;
       } else if (result) {
-        console.log("First query: ", result);
         var userId = result.Id;
       } else {
-        return
+        return;
       }
 
-      //makes query with the msg and the usersID to insert into the messages table. 
+      //makes query with the msg and the usersID to insert into the messages table.
       let insertedMsg =
-        "INSERT INTO Messages (Message, UserID, DateCreated) VALUES('"+data+"'," + userId + ","+ Date.now() +")";
-      db.run(insertedMsg, (err)=>{
+        "INSERT INTO Messages (Message, UserID, DateCreated) VALUES('" +
+        data +
+        "'," +
+        userId +
+        "," +
+        Date.now() +
+        ")";
+      db.run(insertedMsg, (err) => {
         if (err) {
-          console.log("error from the second query: ", err);
           return;
         } else {
-          sendchat()
-          return
+          sendchat();
+          return;
         }
       });
-      
-      function sendchat(){
+
+      function sendchat() {
         let wholeChat =
           "SELECT a.Message, b.Username, a.DateCreated FROM Messages AS a JOIN [Users] AS b on a.Userid=b.Id ORDER BY a.DateCreated DESC";
         db.all(wholeChat, (err, chat) => {
           if (err) {
             console.log(err);
           }
-          console.log("this is the current chat: ", chat);
+          socket.broadcast.emit("load chat", chat);
           socket.emit("load chat", chat);
         });
       }
-    })
-    //listens for if the server should send the chat
-    socket.on("chatroom", () => {
-      console.log("sending the chat");
-      sendchat();
+    });
+  });
+      //listens for if the server should send the chat
+      socket.on("chatroom", () => {
+        let wholeChat =
+              "SELECT a.Message, b.Username, a.DateCreated FROM Messages AS a JOIN [Users] AS b on a.Userid=b.Id ORDER BY a.DateCreated DESC";
+            db.all(wholeChat, (err, chat) => {
+              if (err) {
+                console.log(err);
+              }
+              socket.emit("load chat", chat);
     });
   });
 });
@@ -191,10 +202,8 @@ app.get("/api/loggedstatus", async (req, res) => {
 });
 app.get("/", async (req,res)=>{
     if(req.session.loggedIn){
-        console.log("logged in");
         res.sendFile(path.join(__dirname, "/public/home.html"));
     } else {
-        console.log('sent to login')
         res.sendFile(path.join(__dirname, "/public/login-signup.html"));
     }
 })
@@ -205,14 +214,11 @@ app.get("/home", async (req, res) => {
   if (req.session.loggedIn) {
     res.sendFile(path.join(__dirname, "/public/home.html"));
   } else {
-    console.log("sent to login");
     res.sendFile(path.join(__dirname, "/public/login-signup.html"));
   }
 });
 app.post("/api/login", async (req, res) => {
-  console.log(req.body)
   try {
-    console.log("trying to log in");
     const Email = req.body.Email;
     const Password = req.body.Password;
     // Make sure there is an Email and Password in the request
@@ -243,7 +249,6 @@ app.post("/api/login", async (req, res) => {
         req.session.loggedIn = true;
         req.session.email = req.body.Email;
         req.session.username = user[0].Username;
-        console.log(req.session.username);
         res.sendFile(path.join(__dirname, "/public/home.html"));
       } else {
         return res.status(400).send("No Match");
@@ -254,11 +259,9 @@ app.post("/api/login", async (req, res) => {
   }
 });
 app.post("/api/signup", async (req, res) => {
-  console.log('user trying to signup')
 
   try {
     const { Username, Email, Password } = req.body;
-    console.log(req.body)
     if (!Username||!Email ||!Password) {
       errors.log("data is missing");
       res.status(400).send("All input is required");
@@ -295,13 +298,11 @@ app.post("/api/signup", async (req, res) => {
             res.status(400).json({ error: err.message });
             return;
           } else {
-            console.log('signup succes')
             res
               .sendFile(path.join(__dirname, "/public/login-signup.html"))
           }
         });
       } else {
-        console.log('user already existed')
         res.status(404).sendFile(path.join(__dirname, "/public/login-signup.html"));
           }
     });
@@ -313,40 +314,17 @@ app.post("/api/logout", async (req, res) => {
   req.session.loggedIn = false;
   res.sendFile(path.join(__dirname, "/public/login-signup.html"));
 });
-app.post("/api/getmessage", async (req,res) =>{
-  try{
-    db.serialize(() => {
-      db.all(
-        "select Users.username, Messages.messages from Users INNER JOIN Messages ON Users.Id= Messages.userid",
-        (err, result) => {
-          console.log(result)
-          res.json(result)
-        });
-    });
-  } catch (err) {
-    console.log(err)
-  }
-  
-  console.log('messages are: ')
-
-  let msg = req.body.msg
-  msgTabel.push(msg)
-  res.sendFile(path.join(__dirname, "/public/home.html"));
-})
-app.get("/api/currentchat", async (req, res) => {
-  console.log('should sent msgtabel:',msgTabel)
-  res.send(msgTabel)
-});
 app.post("/api/clearchat", async (req, res) => {
   try {
-    db.serialize(() => {
-      db.all(
-        "DELETE FROM Messages",
-        (err, result) => {
-          console.log(result);
-        }
-      );
-    });
+    if(req.body.admin == true){
+        db.serialize(() => {
+          db.all("DELETE FROM Messages", (err, result) => {
+            console.log(result);
+          });
+        });
+    } else {
+      console.log('bad request:', req.body.admin )
+    }
   } catch (err) {
     console.log(err);
   }

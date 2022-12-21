@@ -8,9 +8,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
   giveMeChat()
   function giveMeChat(){
     console.log('hello there?')
-    socket.emit('chatroom', () => {
-      console.log("requested the chat");
-    });
+    socket.emit('chatroom');
   }
   
   //listens for updates for the chat
@@ -21,16 +19,13 @@ document.addEventListener("DOMContentLoaded", (event) => {
   
   //function that builds the chat in HTML from object
   function buildChats(data){
-  console.log('g')
   var rowcount = document.getElementById("table").rows.length;
   console.log(rowcount)
   for (let i = rowcount - 1; i > 0; i--) {
     table.deleteRow(i);
-    console.log('j')
+
   }
-  console.log('m')
   for(let i=0;i<data.length; i++){
-    console.log('t')
     table=document.getElementById("table");
     var row = table.insertRow(i);
 
